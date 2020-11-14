@@ -147,6 +147,9 @@ noisyImage = noisy(img3D)
 for x in range(20):
   for y in range(20):
      for z in range(20):
+         thread = Thread(target = threaded_function, args = (10, ))
+         thread.start()
+         thread.join()
         output[x,y,z] = getNewValue((x,y,z),noisyImage)
         ##print(x)
       
