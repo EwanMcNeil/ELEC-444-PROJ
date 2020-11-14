@@ -16,7 +16,7 @@ from random import randint
 
 def weight(tupleI, tupleJ):
     Z = 216
-    h = 10
+    h = 2.5
     #h should be 10 times the standard deviation
     #no idea what Z should be 
 
@@ -36,19 +36,18 @@ def getNewValue(inputTuple, data):
 
     #need to center around value 
     #with a certain thing but we dont need to go into that rn
-
     sum = 0;
-    for x in range(inputTuple[0]-3, inputTuple[0]+3):
-        for y in range(inputTuple[1]-3, inputTuple[1]+3):
-                for z in range(inputTuple[2]-3, inputTuple[2]-3):
-                    try:
-                        w = weight(inputTuple,(x,y))
-                        #,z))
-                    
-                        sum = sum + w*data[x,y] 
-                        #,z]
-                    except IndexError:
-                        break
+    for x in range(inputTuple[0]-1, inputTuple[0]+1):
+        for y in range(inputTuple[1]-1, inputTuple[1]+1):
+                for z in range(inputTuple[2]-1, inputTuple[2]+1):
+                 try:
+                    w = weight(inputTuple,(x,y,z))
+                
+                    print(w)
+                    sum = sum + w*data[x,y,z] 
+                    #,z]
+                 except IndexError:
+                    sum = sum + 0
 
     
     return sum
@@ -71,7 +70,7 @@ def createImage(size):
 def noisy(image):
       row,col,ch= image.shape
       mean = 0
-      var = 0.1
+      var = 0.5
       sigma = var**0.5
       gauss = np.random.normal(mean,sigma,(row,col,ch))
       gauss = gauss.reshape(row,col,ch)
@@ -106,20 +105,20 @@ for x in range(6):
 
 
 
-
+plt.subplot(1,3,1)
 plt.imshow(groundImage[:,:,3], interpolation = 'nearest')
-#axs[0].set_title('inputData')
-plt.show()
+plt.title("ground")
 
 
 
 
+plt.subplot(1,3,2)
 plt.imshow(noisyImage[:,:,3], interpolation = 'nearest')
-#axs[0].set_title('noisy')
-plt.show()
+plt.title("noisy")
 
 
+plt.subplot(1,3,3)
 plt.imshow(output[:,:,3], interpolation = 'nearest')
-#axs[0].set_title('noiser')
+plt.title("filtered")
 plt.show()
 
