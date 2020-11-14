@@ -4,6 +4,11 @@ import nibabel as nib
 import math
 from scipy.spatial import distance
 
+import imageio
+
+
+  
+
 from random import seed
 from random import randint
 
@@ -14,14 +19,32 @@ from random import randint
 
 #making the weight function
 
-def weight(tupleI, tupleJ):
-    Z = 216
-    h = 2.5
+def weight(tupleI, tupleJ,data):
+    Z = 64
+    h = 7
     #h should be 10 times the standard deviation
     #no idea what Z should be 
 
-    dist = distance.euclidean(tupleI,tupleJ)
+    #dist = distance.euclidean(tupleI,tupleJ)
 
+
+  
+    sub = tupleI[0] - tupleJ[0] 
+    sub = sub*sub
+    sub2 = tupleI[1] - tupleJ[1]
+    sub2 = sub2*sub2
+    sub3 = tupleI[2] - tupleJ[2]
+    sub3 = sub3*sub3
+    total = sub + sub2 + sub3 
+    dist = math.sqrt(total)
+    """ 
+    valueOne = data[tupleI]
+    valueTwo = data[tupleJ]
+
+    dist = (valueOne - valueTwo)
+    dist = dist*dist
+    dist = math.sqrt(dist) """
+   
     div = dist/(h*h)
     exponential = math.exp(div)
 
@@ -37,21 +60,32 @@ def getNewValue(inputTuple, data):
     #need to center around value 
     #with a certain thing but we dont need to go into that rn
     sum = 0;
-    for x in range(inputTuple[0]-1, inputTuple[0]+1):
-        for y in range(inputTuple[1]-1, inputTuple[1]+1):
-                for z in range(inputTuple[2]-1, inputTuple[2]+1):
+    M = 1
+    for x in range(inputTuple[0]-M, inputTuple[0]+M):
+        for y in range(inputTuple[1]-M, inputTuple[1]+M):
+             for z in range(inputTuple[2]-M, inputTuple[2]+M):
                  try:
-                    w = weight(inputTuple,(x,y,z))
-                
-                    print(w)
-                    sum = sum + w*data[x,y,z] 
-                    #,z]
+                     if(inputTuple[0]-M < -2 or inputTuple[1]-M < -2 or inputTuple[2]-M < -2):
+                         sum = sum + 0
+                     elif(inputTuple[0]+M > 21 or inputTuple[1]+M > 21 or inputTuple[2]+M > 21):
+                         sum = sum + 0
+                     else:
+                         w = weight(inputTuple,(x,y,z),data)
+                         sum = sum + w*data[x,y,z] 
                  except IndexError:
-                    sum = sum + 0
+                     sum = sum + 0
+                     print(x)
+                     print(y)
+                     print(z)
 
-    
     return sum
 
+
+
+
+"""  if(x < 0  or y < 0 or z < 0):
+                        sum = sum + 0 #zero padding
+                    else: """
 
 def createImage(size):
     seed(1)
@@ -69,8 +103,8 @@ def createImage(size):
 ##found online make sure to change later**
 def noisy(image):
       row,col,ch= image.shape
-      mean = 0
-      var = 0.5
+      mean = 128
+      var = 50
       sigma = var**0.5
       gauss = np.random.normal(mean,sigma,(row,col,ch))
       gauss = gauss.reshape(row,col,ch)
@@ -87,29 +121,44 @@ print(data.mean())
 
 
 
-output = np.zeros(shape=(6,6,6));
+output = np.zeros(shape=(20,20,20));
 #going through each value and caluclulating their new thing
 
+im = imageio.imread('heart.png')
+print(im.shape)
 
+
+imageIN = im[:,:,2]
+print(imageIN)
+
+img3D = np.zeros(shape=(20,20,20))
+
+
+for x in range(20):
+  for y in range(20):
+     for z in range(20):
+        img3D[x,y,z] = imageIN[x,y]
+      
 groundImage = createImage(6)
 
-noisyImage = noisy(groundImage)
+noisyImage = noisy(img3D)
 
 
-for x in range(6):
- for y in range(6):
-    for z in range(6):
+for x in range(20):
+  for y in range(20):
+     for z in range(20):
         output[x,y,z] = getNewValue((x,y,z),noisyImage)
-        print(x)
+        ##print(x)
       
 
 
 
 plt.subplot(1,3,1)
-plt.imshow(groundImage[:,:,3], interpolation = 'nearest')
+plt.imshow(img3D[:,:,3], interpolation = 'nearest')
 plt.title("ground")
-
-
+print(img3D.shape)
+print(noisyImage.shape)
+print(output.shape)
 
 
 plt.subplot(1,3,2)
