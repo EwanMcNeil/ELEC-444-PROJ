@@ -1,3 +1,4 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 import nibabel as nib 
@@ -36,26 +37,9 @@ for x in range(data_small.shape[0]):
               
                 
                    
-          epsilon[x,row,column] = math.sqrt(6/7) * ( data_small[x,row,column] - ( (1/6)*total ) )
+          epsilon[x,row,column] = math.pow( math.sqrt(6/7) * ( data_small[x,row,column] - ( (1/6)*total ) ),2 )
     
     
-sigma = ( 1/(data_small.size) ) * math.pow( np.sum(epsilon),2)
-
-
-
-
-
-#
-#shape = list(data_small.size)
-#shape[0] = shape[0]+2*p
-#shape[1] = shape[1]+2*p
-#
-#x = np.zeros(shape)
- 
-    
-#print(data.mean())
-
-#plt.imshow(data[:,:,1], interpolation = 'nearest')
-#plt.show()
+sigma = ( 1/(data_small.size) ) * np.sum(epsilon)
 
 
