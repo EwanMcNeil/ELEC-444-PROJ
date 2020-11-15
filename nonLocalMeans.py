@@ -19,37 +19,48 @@ from random import randint
 
 #making the weight function
 
+
+##needs to be done with the neighboorhood intensities 
+def neighboorhoodIntensities(Tuple, data):
+    
+    
+    #M defines the half length of neighboorhood
+    output = np.array([])
+    count = 0
+    for x in range(Tuple[0]-1, Tuple[0]+1):
+        for y in range(Tuple[1]-1, Tuple[1]+1):
+            for z in range(Tuple[2]-1, Tuple[2]+1):
+                try:
+                    
+                    output = np.append(output, [data[x,y,z]])
+                    count = count +1
+                except IndexError:
+                    output[1,count] = 0
+                    count = count +1
+                    continue
+        
+  
+   
+    return output
+
+
+
+
+
+
 def weight(tupleI, tupleJ,data):
-    Z = 64
-    h = 7
+    Z = 216
+    h = 0.5
     #h should be 10 times the standard deviation
     #no idea what Z should be 
+    uNJ = neighboorhoodIntensities(tupleJ, data)
+    uNI = neighboorhoodIntensities(tupleI, data)
 
-    #dist = distance.euclidean(tupleI,tupleJ)
-
-
-  
-    sub = tupleI[0] - tupleJ[0] 
-    sub = sub*sub
-    sub2 = tupleI[1] - tupleJ[1]
-    sub2 = sub2*sub2
-    sub3 = tupleI[2] - tupleJ[2]
-    sub3 = sub3*sub3
-    total = sub + sub2 + sub3 
-    dist = math.sqrt(total)
-    """ 
-    valueOne = data[tupleI]
-    valueTwo = data[tupleJ]
-
-    dist = (valueOne - valueTwo)
-    dist = dist*dist
-    dist = math.sqrt(dist) """
-   
+    dist = np.linalg.norm(uNJ-uNI)
     div = dist/(h*h)
-    exponential = math.exp(div)
+    exponential = math.exp((-1)*div)
 
     output = (1/Z)*exponential
-
     return output
 
 
@@ -60,32 +71,23 @@ def getNewValue(inputTuple, data):
     #need to center around value 
     #with a certain thing but we dont need to go into that rn
     sum = 0;
-    M = 1
+    global M 
     for x in range(inputTuple[0]-M, inputTuple[0]+M):
         for y in range(inputTuple[1]-M, inputTuple[1]+M):
              for z in range(inputTuple[2]-M, inputTuple[2]+M):
                  try:
                      if(inputTuple[0]-M < -2 or inputTuple[1]-M < -2 or inputTuple[2]-M < -2):
-                         sum = sum + 0
+                        sum = sum + 0
                      elif(inputTuple[0]+M > 21 or inputTuple[1]+M > 21 or inputTuple[2]+M > 21):
-                         sum = sum + 0
+                        sum = sum + 0
                      else:
-                         w = weight(inputTuple,(x,y,z),data)
-                         sum = sum + w*data[x,y,z] 
+                        w = weight(inputTuple,(x,y,z),data)
+                        sum = sum + w*data[x,y,z] 
                  except IndexError:
                      sum = sum + 0
-                     print(x)
-                     print(y)
-                     print(z)
-
+                     continue
     return sum
 
-
-
-
-"""  if(x < 0  or y < 0 or z < 0):
-                        sum = sum + 0 #zero padding
-                    else: """
 
 def createImage(size):
     seed(1)
@@ -120,6 +122,9 @@ print(data.mean())
 #A voxel represents a single sample, or data point, on a regularly spaced, three-dimensional grid.
 
 
+##GLobal M to define the neighborhood
+M = 3
+
 
 output = np.zeros(shape=(20,20,20));
 #going through each value and caluclulating their new thing
@@ -129,7 +134,6 @@ print(im.shape)
 
 
 imageIN = im[:,:,2]
-print(imageIN)
 
 img3D = np.zeros(shape=(20,20,20))
 
@@ -147,11 +151,9 @@ noisyImage = noisy(img3D)
 for x in range(20):
   for y in range(20):
      for z in range(20):
-         thread = Thread(target = threaded_function, args = (10, ))
-         thread.start()
-         thread.join()
         output[x,y,z] = getNewValue((x,y,z),noisyImage)
-        ##print(x)
+        print(x)
+
       
 
 
