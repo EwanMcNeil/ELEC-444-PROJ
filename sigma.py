@@ -22,6 +22,6 @@ def sigma(data):
                  except IndexError: 
                       total = total +0
         
-                 epsilon[x,row,column] = math.sqrt(6/7) * ( data_small[x,row,column] - ( (1/6)*total ) )
-    
-    return ( 1/(data_small.size) ) * math.pow(np.sum(epsilon),2) 
+                 epsilon[x,row,column] = math.pow( math.sqrt(6/7) * ( data_small[x,row,column] - ( (1/6)*total ) ),2 )
+                 
+    return ( 1/(data_small.size) ) * np.sum(epsilon)
