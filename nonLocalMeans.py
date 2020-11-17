@@ -73,15 +73,18 @@ def weight(tupleI, tupleJ,data):
     uNJ = blockMeansVal[tupleJ]
     uNI = blockMeansVal[tupleI]
 
-    meanDiv = uNI/uNI
-    print(uNJ,uNI,meanDiv)
+    maxV = max(uNJ,uNI)
+    minV = min(uNI,uNJ)
+
+    meanDiv = maxV/minV
+  
+
 
     output = 0
 
-    if(meanDiv < 1):
+    if(meanDiv <= 1):
         dist = np.linalg.norm(uNJ-uNI)
         div = dist/(h*h)
-        
         #div = dist/(2*1*h*26)
         exponential = math.exp((-1)*div)
     
@@ -119,8 +122,8 @@ def getNewValue(inputTuple, data):
 ##found online make sure to change later**
 def noisy(image):
       row,col,ch= image.shape
-      mean = 128
-      var = 50
+      mean = 273
+      var = 4000
       sigma = var**0.5
       gauss = np.random.normal(mean,sigma,(row,col,ch))
       gauss = gauss.reshape(row,col,ch)
@@ -131,6 +134,10 @@ def noisy(image):
 img = nib.load('NormalBrains/t1_icbm_normal_1mm_pn3_rf20.mnc')
 data = img.get_fdata()
 print(data.mean())
+print("varience", np.var(data))
+
+
+
 
 
 
@@ -140,8 +147,20 @@ outputImage = np.zeros(shape=(75,75,75))
 noisyImage = noisy(data)
 
 
+plt.subplot(1,3,1)
+plt.imshow(data[0:75,0:75,60], interpolation = 'nearest')
+plt.title("ground")
+
+
+
+plt.subplot(1,3,2)
+plt.imshow(noisyImage[0:75,0:75,60], interpolation = 'nearest')
+plt.title("noisy")
+
+plt.show()
+
 ##GLobal M to define the neighborhood
-M = 2
+M = 3
 h = 10
 
 
@@ -155,26 +174,26 @@ blockVectors = np.zeros(shape=(75,75,75))
 
 ##I think you need to make the blocks first and then knowing the increment you find the 
 ## array and get the value 
-def blockValues(outputImage, noisyImage):
+def blockValues(noisyImage):
    
-    count = 0
+  
     for x in range(0,75):
         for y in range(0,75):
             for z in range(0,75):
                 #need to get mean of its self
-                sum = np.sum(noisyImage[x:x+5,y:y+5,z:z+5])
+                sum = np.sum(noisyImage[x:x+3,y:y+3,z:z+3])
                 mean = sum/125
                 global blockMeansVal
                 blockMeansVal[x,y,z] = mean
-                
-                count = count + 1
+                print("Blockvalues",x)
+               
     
    
 
 
 ##now using the blockMeans array we do nlm for it
 
-def blockNLM(outputImage, noisyImage):
+def blockNLM(noisyImage):
    
     count = 0
     for x in range(0,75):
@@ -182,8 +201,10 @@ def blockNLM(outputImage, noisyImage):
             for z in range(0,75):
                 global blockVectors
                 global blockMeansVal
+                print("BlockNLM",x)
                 blockVectors[x,y,z] = getNewValue((x,y,z),blockMeansVal)
               
+
 
 
 
@@ -192,17 +213,32 @@ def blockNLM(outputImage, noisyImage):
 ##in its area
 
 
-""" def loopOperation(outputImage):
+def voxelValues(outputImage):
    
-     for x in range(0,15):
-        for y in range(0,15):
-            for z in range(0,15):
-                for()
-
+    for x in range(0,75):
+        for y in range(0,75):
+            for z in range(0,75):
                 global blockVectors
                 global blockMeansVal
-                blockVectors[x,y,z] = getNewValue((x,y,z),blockMeansVal) """
-               
+
+                vox1 = (x-1,y,z)
+                vox2 = (x+1,y,z)
+                vox3 = (x,y,z+1)
+                vox4 = (x,y,z-1)
+                vox5 = (x,y+1,z)
+                vox6 = (x,y-1,z)
+                vox7 = (x,y,z)
+                iteration = (vox1,vox2,vox3,vox4,vox5,vox6,vox7)
+                print("voxelValues",x)
+                global blockVectors
+                sum = 0;
+                for vox in iteration:
+                    try:
+                        sum = sum + blockVectors[vox]
+                    except IndexError:
+                        continue
+                outputImage[x,y,z] = sum/7
+                        
 
 
 
@@ -216,14 +252,15 @@ concurrent.futures.wait(futures) """
 #
 #loopOperation((0,75),outputImage, noisyImage)
 
-blockValues(outputImage,noisyImage)
-
-blockNLM(outputImage,noisyImage)
+blockValues(noisyImage)
 
 
+blockNLM(noisyImage)
+
+voxelValues(outputImage)
 
 
-""" plt.subplot(1,3,1)
+plt.subplot(1,3,1)
 plt.imshow(data[0:75,0:75,60], interpolation = 'nearest')
 plt.title("ground")
 
@@ -236,7 +273,7 @@ plt.title("noisy")
 
 
 plt.subplot(1,3,3)
-plt.imshow(outputImage[:,:,10], interpolation = 'nearest')
+plt.imshow(outputImage[0:75,0:75,60], interpolation = 'nearest')
 plt.title("filtered")
 plt.show()
- """
+
