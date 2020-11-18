@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 import nibabel as nib 
 import math
 import time
-from random import seed
-from random import randint
 from sklearn.metrics import mean_squared_error
 
 #The classical definition of the NL-means filter considers that each voxel can be linked to all the others, but#
@@ -19,18 +17,14 @@ def sigma(data):
              for column in range(data_small.shape[2]):
                  index1=row
                  index2=row+1
-                 index3=row-1
-                 
+                 index3=row-1 
                  index4=column
                  index5=column+1
-                 index6=column-1 
-                 
+                 index6=column-1                 
                  index7=x
                  index8=x+1
-                 index9=x-1
-                 
+                 index9=x-1           
                  total=0
-                 
                  try:      
                       if index6<0 or index3<0 or index9<0 :
                           total = data_small[index8,index1,index4]  + data_small[index7,index2,index4] + data_small[index7,index1,index5]
@@ -44,75 +38,107 @@ def sigma(data):
                  
     return ( 1/(data_small.size) ) * np.sum(epsilon)
 
+
 def psnr(truth,denoised):
     
     truth_r = np.reshape(truth,(1,truth.size))
     denoised_r = np.reshape(denoised,(1,denoised.size))
     
     rms = math.sqrt(mean_squared_error(truth_r, denoised_r))
-    psnr = 20* (math.log10(255/rms))
+    #psnr = 20* (math.log10(255/rms))
     
-    return psnr 
+    return rms 
+
+    
+
+def neighboorhoodIntensities_mean_var(a,d, tuplein):
+    return [[[ a[k][i][j] if i >= 0 and i < len(a[0]) and j >= 0 and j < len(a[0]) and k >= 0 and k < len(a[0]) else 0         
+      for k in range(tuplein[0]-d, tuplein[0]+1+d)] 
+          for j in range(tuplein[2]-d, tuplein[2]+1+d)]
+              for i in range(tuplein[1]-d, tuplein[1]+1+d)] 
+
+
+def N_var_mean(ain,d,tuplein):
+
+    N = neighboorhoodIntensities_mean_var(ain,d, tuplein)
+    N_arr = np.asarray(N)
+    return np.mean(N_arr),np.var(N_arr)
+ 
+    
+def neighboorhoodIntensities(a,d, tuplein):
+    return [[[ a[k][i][j] if not(i==tuplein[1] and j==tuplein[2] and k==tuplein[0]) and i >= 0 and i < len(a[0]) and j >= 0 and j < len(a[0]) and k >= 0 and k < len(a[0]) else 0         
+      for k in range(tuplein[0]-d, tuplein[0]+1+d)] 
+          for j in range(tuplein[2]-d, tuplein[2]+1+d)]
+              for i in range(tuplein[1]-d, tuplein[1]+1+d)] 
     
  
-
-def neighboorhoodIntensities(tuple, data):
-    
-    
-    #M defines the half length of neighboorhood
-    output = np.array([])
-    vox1 = (tuple[0]-1,tuple[1],tuple[2])
-    vox2 = (tuple[0]+1,tuple[1],tuple[2])
-    vox3 = (tuple[0],tuple[1],tuple[2]+1)
-    vox4 = (tuple[0],tuple[1],tuple[2]-1)
-    vox5 = (tuple[0],tuple[1]+1,tuple[2])
-    vox6 = (tuple[0],tuple[1]-1,tuple[2])
-    iteration = (vox1,vox2,vox3,vox4,vox5,vox6)
-
-    for vox in iteration:
-        try:
-            output = np.append(output, [data[vox]])
-        except IndexError:
-            output = np.append(output, 0)
-            continue
-    
-
-    return output
-
-def weight(tupleI, tupleJ,data):
+#weight with voxel selection
+def weight_voxel_selection(tupleI, tupleJ, data):
     Z = 216
     s = sigma(data)
     b = 1 
     N = 27
 
-
-    output = 0
-
-    uNJ = neighboorhoodIntensities(tupleJ, data)
-    uNI = neighboorhoodIntensities(tupleI, data)
+    u1 = 0.95
+    s1 = 0.5
     
+    output = 0
+    
+    uNJ = np.asarray ( neighboorhoodIntensities(data,1,tupleJ) )
+    uNI = np.asarray ( neighboorhoodIntensities(data,1,tupleI) )
+    
+    mean_i,var_i = N_var_mean(data,1,tupleI)
+    mean_j,var_j = N_var_mean(data,1,tupleJ)
+    
+    div_mean = mean_i/mean_j
+    div_var = var_i/var_j
+    
+    if( ( (div_mean > u1) and (div_mean < 1/u1) ) and ( (div_var > s1) and (div_var < 1/s1) )       ):
+        dist = np.linalg.norm(uNJ-uNI)
+        div = dist/(2*b*s*N)
+        exponential = math.exp((-1)*div)
+        output = (1/Z)*exponential
+        return output
+    else:
+        return 0
+    
+#weight without voxel selection    
+def weight(tupleI, tupleJ, data):
+    Z = 216
+    s = sigma(data)
+    b = 1 
+    N = 27    
+    output = 0
+    
+    uNJ = np.asarray ( neighboorhoodIntensities(data,1,tupleJ) )
+    uNI = np.asarray ( neighboorhoodIntensities(data,1,tupleI) )
+
     dist = np.linalg.norm(uNJ-uNI)
     div = dist/(2*b*s*N)
     exponential = math.exp((-1)*div)
     output = (1/Z)*exponential
-   
     return output
+     
 
-def getNewValue(inputTuple, data):
-
-  
-    sum = 0;
+# select=1 : use voxel selection selection=0 : do not use voxel selection
+def getNewValue(intuple, indata, select):
+ 
+    total = 0;
     global M 
-    for x in range(inputTuple[0]-M, inputTuple[0]+M):
-        for y in range(inputTuple[1]-M, inputTuple[1]+M):
-             for z in range(inputTuple[2]-M, inputTuple[2]+M):
-                 try:
-                        w = weight(inputTuple,(x,y,z),data)
-                        sum = sum + w*data[x,y,z] 
-                 except IndexError:
-                     sum = sum + 0
-                     continue
-    return sum
+
+    for k in range(intuple[0]-M, intuple[0]+1+M):
+      for j in range(intuple[2]-M, intuple[2]+1+M):
+        for i in range(intuple[1]-M, intuple[1]+1+M): 
+            if(i >= 0 and i < len(indata[0,:,0]) and j >= 0 and j < len(indata[0,0,:]) and k >= 0 and k < len(indata[:,0,0]) ):
+                if(select==1):
+                 w = weight_voxel_selection(intuple,(k,i,j),indata)
+                 total = total + w*indata[k,i,j]
+                elif(select==0):
+                  w = weight(intuple,(k,i,j),indata)
+                  total = total + w*indata[k,i,j]
+           
+                    
+    return total
 
 def noisy(image):
       row,col,ch= image.shape
@@ -129,7 +155,7 @@ img = nib.load('NormalBrains/t1_icbm_normal_1mm_pn3_rf20.mnc')
 
 
 data_big = img.get_fdata() #input data
-data = data_big[:6,:6,:6]
+data = data_big[:4,:4,:4]
 print(data.mean())
 
 M = 3
@@ -138,19 +164,55 @@ M = 3
 output = np.zeros(data.shape) #output image
 noisyImage = noisy(data) # added gaussian noise to original data
 
-start_time = time.time()
+
+# Without using voxels
+start_time_without_voxel = time.time()
 
 
 for x in range(data.shape[0]):
   for y in range(data.shape[1]):
      for z in range(data.shape[2]):
-        output[x,y,z] = getNewValue((x,y,z),noisyImage)
+        output[x,y,z] = getNewValue((x,y,z),noisyImage,0)
         print(x)
 
-print("--- %s seconds ---" % (time.time() - start_time))     
+print("--- %s seconds (without voxel sel) ---" % (time.time() - start_time_without_voxel))  
+print("PSNR(ground-noise)",psnr(data,noisyImage))
+print("PSNR(ground-output)",psnr(data,output)) 
+
+#plot results
+plt.subplot(1,3,1)
+plt.imshow(data[1,:,:], interpolation = 'nearest')
+plt.title("ground")
 
 
 
+plt.subplot(1,3,2)
+plt.imshow(noisyImage[1,:,:], interpolation = 'nearest')
+plt.title("noisy")
+
+
+plt.subplot(1,3,3)
+plt.imshow(output[1,:,:], interpolation = 'nearest')
+plt.title("filtered")
+plt.show()     
+
+
+# Using voxels
+start_time_with_voxel=time.time()
+
+for x in range(data.shape[0]):
+  for y in range(data.shape[1]):
+     for z in range(data.shape[2]):
+        output[x,y,z] = getNewValue((x,y,z),noisyImage,1)
+        print(x)
+
+print("--- %s seconds (with voxel sel) ---" % (time.time() - start_time_with_voxel))  
+print("PSNR(ground-noise)",psnr(data,noisyImage))
+print("PSNR(ground-output)",psnr(data,output))
+
+
+
+#plot results
 plt.subplot(1,3,1)
 plt.imshow(data[1,:,:], interpolation = 'nearest')
 plt.title("ground")
