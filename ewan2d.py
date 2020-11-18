@@ -4,10 +4,13 @@ import nibabel as nib
 import math
 import time
 from sklearn.metrics import mean_squared_error
+from multiprocessing import Pool
+
 
 #The classical definition of the NL-means filter considers that each voxel can be linked to all the others, but#
 # for practical computational reasons the number of voxels taken into account in the weighted
 #average can be limited to the so-called “search volume” Vi of size (2M+1)3, centered at the current voxel xi.
+
 def sigma(data):
     data_small = data
     epsilon = np.zeros(data_small.shape)
@@ -51,18 +54,16 @@ def psnr(truth,denoised):
 
     
 
-def neighboorhoodIntensities_mean_var(a,d, tuplein):
-    return [[[ a[k][i][j] if i >= 0 and i < len(a[0]) and j >= 0 and j < len(a[0]) and k >= 0 and k < len(a[0]) else 0         
-      for k in range(tuplein[0]-d, tuplein[0]+1+d)] 
-          for j in range(tuplein[2]-d, tuplein[2]+1+d)]
-              for i in range(tuplein[1]-d, tuplein[1]+1+d)] 
+#def neighboorhoodIntensities_mean_var(a,d, tuplein):
+#    return [[[ a[k][i][j] if i >= 0 and i < len(a[0]) and j >= 0 and j < len(a[0]) and k >= 0 and k < len(a[0]) else 0         
+#      for k in range(tuplein[0]-d, tuplein[0]+1+d)] 
+#          for j in range(tuplein[2]-d, tuplein[2]+1+d)]
+#              for i in range(tuplein[1]-d, tuplein[1]+1+d)] 
 
 
-def N_var_mean(ain,d,tuplein):
+def N_var_mean(N):
 
-    N = neighboorhoodIntensities_mean_var(ain,d, tuplein)
-    N_arr = np.asarray(N)
-    return np.mean(N_arr),np.var(N_arr)
+    return np.mean(N),np.var(N)
  
     
 def neighboorhoodIntensities(a,d, tuplein):
@@ -75,7 +76,7 @@ def neighboorhoodIntensities(a,d, tuplein):
 #weight with voxel selection
 def weight_voxel_selection(tupleI, tupleJ, data):
     Z = 216
-    s = sigma(data)
+    global s
     b = 1 
     N = 27
 
@@ -87,8 +88,14 @@ def weight_voxel_selection(tupleI, tupleJ, data):
     uNJ = np.asarray ( neighboorhoodIntensities(data,1,tupleJ) )
     uNI = np.asarray ( neighboorhoodIntensities(data,1,tupleI) )
     
-    mean_i,var_i = N_var_mean(data,1,tupleI)
-    mean_j,var_j = N_var_mean(data,1,tupleJ)
+    uNI_mean_var=uNI
+    uNJ_mean_var=uNJ
+    
+    uNI_mean_var[1,1,1] = data[tupleI]
+    uNJ_mean_var[1,1,1] = data[tupleJ]
+    
+    mean_i,var_i = N_var_mean(uNI_mean_var)
+    mean_j,var_j = N_var_mean(uNJ_mean_var)
     
     div_mean = mean_i/mean_j
     div_var = var_i/var_j
@@ -105,7 +112,7 @@ def weight_voxel_selection(tupleI, tupleJ, data):
 #weight without voxel selection    
 def weight(tupleI, tupleJ, data):
     Z = 216
-    s = sigma(data)
+    global s
     b = 1 
     N = 27    
     output = 0
@@ -145,6 +152,7 @@ def noisy(image):
       mean = 273
       var = 3000
       sigma = var**0.5
+      np.random.seed(10)
       gauss = np.random.normal(mean,sigma,(row,col,ch))
       gauss = gauss.reshape(row,col,ch)
       noisy = image + gauss
@@ -155,11 +163,11 @@ img = nib.load('NormalBrains/t1_icbm_normal_1mm_pn3_rf20.mnc')
 
 
 data_big = img.get_fdata() #input data
-data = data_big[:4,:4,:4]
+data = data_big[:10,:10,:10]
 print(data.mean())
 
 M = 3
-
+s = sigma(data)
 
 output = np.zeros(data.shape) #output image
 noisyImage = noisy(data) # added gaussian noise to original data
@@ -168,11 +176,11 @@ noisyImage = noisy(data) # added gaussian noise to original data
 # Without using voxels
 start_time_without_voxel = time.time()
 
-
+pool = Pool()
 for x in range(data.shape[0]):
   for y in range(data.shape[1]):
      for z in range(data.shape[2]):
-        output[x,y,z] = getNewValue((x,y,z),noisyImage,0)
+        output[x,y,z] =  getNewValue((x,y,z),noisyImage,0)
         print(x)
 
 print("--- %s seconds (without voxel sel) ---" % (time.time() - start_time_without_voxel))  
