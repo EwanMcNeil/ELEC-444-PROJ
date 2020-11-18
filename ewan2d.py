@@ -54,12 +54,6 @@ def psnr(truth,denoised):
 
     
 
-#def neighboorhoodIntensities_mean_var(a,d, tuplein):
-#    return [[[ a[k][i][j] if i >= 0 and i < len(a[0]) and j >= 0 and j < len(a[0]) and k >= 0 and k < len(a[0]) else 0         
-#      for k in range(tuplein[0]-d, tuplein[0]+1+d)] 
-#          for j in range(tuplein[2]-d, tuplein[2]+1+d)]
-#              for i in range(tuplein[1]-d, tuplein[1]+1+d)] 
-
 
 def N_var_mean(N):
 
@@ -136,7 +130,6 @@ def getNewValue(intuple, indata, select):
     for k in range(intuple[0]-M, intuple[0]+1+M):
       for j in range(intuple[2]-M, intuple[2]+1+M):
         for i in range(intuple[1]-M, intuple[1]+1+M): 
-            if(i >= 0 and i < len(indata[0,:,0]) and j >= 0 and j < len(indata[0,0,:]) and k >= 0 and k < len(indata[:,0,0]) ):
                 if(select==1):
                  w = weight_voxel_selection(intuple,(k,i,j),indata)
                  total = total + w*indata[k,i,j]
@@ -158,7 +151,13 @@ def noisy(image):
       noisy = image + gauss
       return noisy
 
-
+def padding(image,d):
+   padded = np.pad(data, ((d, d), (d, d), (d, d)),mode='constant', constant_values=0)
+   return padded
+    
+    
+    
+    
 img = nib.load('NormalBrains/t1_icbm_normal_1mm_pn3_rf20.mnc')
 
 
@@ -166,12 +165,15 @@ data_big = img.get_fdata() #input data
 data = data_big[:1,:,:]
 print(data.mean())
 
+
+
+
 M = 3
 s = sigma(data)
 
 output = np.zeros(data.shape) #output image
 noisyImage = noisy(data) # added gaussian noise to original data
-
+padded = padding(noisyImage,M)
 
 # Without using voxels
 start_time_without_voxel = time.time()
@@ -180,8 +182,8 @@ pool = Pool()
 for x in range(data.shape[0]):
   for y in range(data.shape[1]):
      for z in range(data.shape[2]):
-        output[x,y,z] =  getNewValue((x,y,z),noisyImage,0)
-        print(x)
+        output[x,y,z] =  getNewValue((x,y,z),padded,0)
+        print(x+1)
 
 print("--- %s seconds (without voxel sel) ---" % (time.time() - start_time_without_voxel))  
 print("PSNR(ground-noise)",psnr(data,noisyImage))
@@ -211,7 +213,7 @@ start_time_with_voxel=time.time()
 for x in range(data.shape[0]):
   for y in range(data.shape[1]):
      for z in range(data.shape[2]):
-        output[x,y,z] = getNewValue((x,y,z),noisyImage,1)
+        output[x,y,z] = getNewValue((x,y,z),padded,1)
         print(x)
 
 print("--- %s seconds (with voxel sel) ---" % (time.time() - start_time_with_voxel))  
