@@ -67,7 +67,7 @@ def N_var_mean(N):
  
     
 def neighboorhoodIntensities(a,d, tuplein):
-    return [[[ a[k][i][j] if not(i==tuplein[1] and j==tuplein[2] and k==tuplein[0]) and i >= 0 and i < len(a[0]) and j >= 0 and j < len(a[0]) and k >= 0 and k < len(a[0]) else 0         
+    return [[[ a[k][i][j] if not(i==tuplein[1] and j==tuplein[2] and k==tuplein[0]) and i >= 0 and i < a.shape[1] and j >= 0 and j < a.shape[2] and k >= 0 and k < a.shape[0] else 0         
       for k in range(tuplein[0]-d, tuplein[0]+1+d)] 
           for j in range(tuplein[2]-d, tuplein[2]+1+d)]
               for i in range(tuplein[1]-d, tuplein[1]+1+d)] 
@@ -163,7 +163,7 @@ img = nib.load('NormalBrains/t1_icbm_normal_1mm_pn3_rf20.mnc')
 
 
 data_big = img.get_fdata() #input data
-data = data_big[:10,:10,:10]
+data = data_big[:1,:,:]
 print(data.mean())
 
 M = 3
@@ -189,18 +189,18 @@ print("PSNR(ground-output)",psnr(data,output))
 
 #plot results
 plt.subplot(1,3,1)
-plt.imshow(data[1,:,:], interpolation = 'nearest')
+plt.imshow(data[0,:,:], interpolation = 'nearest')
 plt.title("ground")
 
 
 
 plt.subplot(1,3,2)
-plt.imshow(noisyImage[1,:,:], interpolation = 'nearest')
+plt.imshow(noisyImage[0,:,:], interpolation = 'nearest')
 plt.title("noisy")
 
 
 plt.subplot(1,3,3)
-plt.imshow(output[1,:,:], interpolation = 'nearest')
+plt.imshow(output[0,:,:], interpolation = 'nearest')
 plt.title("filtered")
 plt.show()     
 
@@ -222,17 +222,17 @@ print("PSNR(ground-output)",psnr(data,output))
 
 #plot results
 plt.subplot(1,3,1)
-plt.imshow(data[1,:,:], interpolation = 'nearest')
+plt.imshow(data[0,:,:], interpolation = 'nearest')
 plt.title("ground")
 
 
 
 plt.subplot(1,3,2)
-plt.imshow(noisyImage[1,:,:], interpolation = 'nearest')
+plt.imshow(noisyImage[0,:,:], interpolation = 'nearest')
 plt.title("noisy")
 
 
 plt.subplot(1,3,3)
-plt.imshow(output[1,:,:], interpolation = 'nearest')
+plt.imshow(output[0,:,:], interpolation = 'nearest')
 plt.title("filtered")
 plt.show()
