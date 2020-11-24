@@ -52,9 +52,6 @@ def psnr(truth,denoised):
     
     return rms 
 
-    
-
-
 def N_var_mean(N):
 
     return np.mean(N),np.var(N)
@@ -68,7 +65,7 @@ def neighboorhoodIntensities(a,d, tuplein):
     
  
 #weight with voxel selection
-def weight_voxel_selection(tupleI, tupleJ, data,Z):
+def weight_voxel_selection(tupleI, tupleJ, data,Zv):
    
     global s
     global M
@@ -79,9 +76,9 @@ def weight_voxel_selection(tupleI, tupleJ, data,Z):
     s1 = 0.5
     
     output = 0
-    data_I = data[M:data.shape[0]-M , M:data.shape[1]-M,M:data.shape[2]-M ]
+
     uNJ = np.asarray ( neighboorhoodIntensities(data,1,tupleJ) )
-    uNI = np.asarray ( neighboorhoodIntensities(data_I,1,tupleI) )
+    uNI = np.asarray ( neighboorhoodIntensities(data,1,tupleI) )
     
     uNI_mean_var=uNI
     uNJ_mean_var=uNJ
@@ -93,20 +90,57 @@ def weight_voxel_selection(tupleI, tupleJ, data,Z):
     mean_j,var_j = N_var_mean(uNJ_mean_var)
     
     if( (mean_i==0 and var_i==0) or (mean_j==0 and var_j==0) ):
-        return 0
+        div_mean = math.inf
+        div_var = math.inf 
     else:
-      div_mean = mean_i/mean_j
-      div_var = var_i/var_j
+     div_mean = mean_i/mean_j
+     div_var = var_i/var_j
    
 
-    if( ( (div_mean > u1) and (div_mean < 1/u1) ) and ( (div_var > s1) and (div_var < 1/s1) )       ):
+    if( ( (div_mean > u1) and (div_mean < 1/u1) ) and ( (div_var > s1) and (div_var < 1/s1) ) ):
         dist = np.linalg.norm(uNJ-uNI)
         div = dist/(2*b*s*N)
         exponential = math.exp((-1)*div)
-        output = (1/Z)*exponential
+        output = (1/Zv)*exponential
         return output
     else:
         return 0
+
+
+def Z_voxel_selection(tupleI, tupleJ, data):
+   
+    u1 = 0.95
+    s1 = 0.5
+    
+    z = 0
+
+    uNJ = np.asarray ( neighboorhoodIntensities(data,1,tupleJ) )
+    uNI = np.asarray ( neighboorhoodIntensities(data,1,tupleI) )
+    
+    uNI_mean_var=uNI
+    uNJ_mean_var=uNJ
+    
+    uNI_mean_var[1,1,1] = data[tupleI]
+    uNJ_mean_var[1,1,1] = data[tupleJ]
+    
+    mean_i,var_i = N_var_mean(uNI_mean_var)
+    mean_j,var_j = N_var_mean(uNJ_mean_var)
+    
+    if( (mean_i==0 and var_i==0) or (mean_j==0 and var_j==0) ):
+        div_mean = math.inf
+        div_var = math.inf 
+    else:
+     div_mean = mean_i/mean_j
+     div_var = var_i/var_j
+   
+
+    if( ( (div_mean > u1) and (div_mean < 1/u1) ) and ( (div_var > s1) and (div_var < 1/s1) ) ):
+        z = z +1
+    else:
+        z = z + 0
+
+    return z
+
     
 #weight without voxel selection    
 def weight(tupleI, tupleJ, data,Z):
@@ -130,24 +164,45 @@ def weight(tupleI, tupleJ, data,Z):
                 
 
 # select=1 : use voxel selection selection=0 : do not use voxel selection
-def getNewValue(intuple, indata, select,Z):
+def getNewValue(intuple, indata,Z):
  
     total = 0;
+    suma = 0;
     global M 
     
     #this defines the search volume
     for x in range(intuple[0]-M,intuple[0]+M+1):
       for y in range(intuple[1]-M,intuple[1]+M+1):
-        for z in range(intuple[2]-M,intuple[2]+M+1): 
-                if(select==1):
-                 w = weight_voxel_selection(intuple,(x,y,z),indata,Z)
-                 total = total + w*indata[x,y,z]
-                elif(select==0):
+        for z in range(intuple[2]-M,intuple[2]+M+1):          
                   w = weight(intuple,(x,y,z),indata,Z)
                   total = total + w*indata[x,y,z]
+                  suma = suma + w
            
                     
     return total
+
+def getNewValue_voxel(intuple, indata):
+ 
+    total = 0;
+    suma = 0;
+    Z = 0
+    global M 
+    
+    for x in range(intuple[0]-M,intuple[0]+M+1):
+      for y in range(intuple[1]-M,intuple[1]+M+1):
+        for z in range(intuple[2]-M,intuple[2]+M+1):
+            Z = Z + Z_voxel_selection(intuple,(x,y,z),indata)
+            
+    #this defines the search volume
+    for x in range(intuple[0]-M,intuple[0]+M+1):
+      for y in range(intuple[1]-M,intuple[1]+M+1):
+        for z in range(intuple[2]-M,intuple[2]+M+1):             
+                 w = weight_voxel_selection(intuple,(x,y,z),indata,Z)
+                 total = total + w*indata[x,y,z]
+                 suma = suma + w
+    
+    return total
+           
 
 def noisy(image):
       row,col,ch= image.shape
@@ -164,39 +219,12 @@ def padding(image,d):
    padded = np.pad(image, ((d, d), (d, d), (d, d)),mode='constant', constant_values=0)
    return padded
     
-def Z_calculator(intuple,indata):
-    
-     total = 0
-     for x in range(intuple[0]-M,intuple[0]+M+1):
-      for y in range(intuple[1]-M,intuple[1]+M+1):
-        for z in range(intuple[2]-M,intuple[2]+M+1): 
-               w = weight_z(intuple,(x,y,z),indata)
-               total = total + w
-      return total
-  
-def weight_z(tupleI, tupleJ, data):
-    
-    global s
-    b = 1 
-    N = 27    
-    output = 0
-    
-    
-    uNJ = np.asarray ( neighboorhoodIntensities(data,1,tupleJ) )
-    uNI = np.asarray ( neighboorhoodIntensities(data,1,tupleI) )
-
-    dist = np.linalg.norm(uNJ-uNI)
-    div = dist/(2*b*s*N)
-    exponential = math.exp((-1)*div)
-    output = exponential
-    return output      
-    
     
 img = nib.load('NormalBrains/t1_icbm_normal_1mm_pn3_rf20.mnc')
 
 
 data_big = img.get_fdata() #input data
-data = data_big[:3,:217,:181]
+data = data_big[:3,:50,:50]
 print(data.mean())
 
 
@@ -204,21 +232,20 @@ print(data.mean())
 
 M = 1
 
-
+Z = math.pow(((2*M)+1),3)
 output = np.zeros(data.shape) #output image
 noisyImage = noisy(data) # added gaussian noise to original data
 s = sigma(noisyImage)
 padded = padding(noisyImage,M)
 
-# Without using voxels
+
 start_time_without_voxel = time.time()
 
 
 for x in range(M,padded.shape[0]-M):
   for y in range(M,padded.shape[1]-M):
      for z in range(M,padded.shape[2]-M):
-        Z = Z_calculator((x,y,z),padded)
-        output[x-M,y-M,z-M] =  getNewValue((x,y,z),padded,0,Z)
+        output[x-M,y-M,z-M] = getNewValue((x,y,z),padded,Z)
        
         #print(x)
 
@@ -244,14 +271,13 @@ plt.title("filtered")
 plt.show()     
 
 
-# Using voxels
+ 
 start_time_with_voxel=time.time()
 
-for x in range(data.shape[0]):
-  for y in range(data.shape[1]):
-     for z in range(data.shape[2]):
-        Z = Z_calculator((x,y,z),padded)
-        output[x,y,z] = getNewValue((x,y,z),padded,1,Z)
+for x in range(M,padded.shape[0]-M):
+  for y in range(M,padded.shape[1]-M):
+     for z in range(M,padded.shape[2]-M):
+        output[x-M,y-M,z-M] = getNewValue_voxel((x,y,z),padded)
        
         #print(x)
 
