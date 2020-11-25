@@ -129,6 +129,25 @@ def weight(tupleI, tupleJ, data,Z):
 
                 
 
+def weightBlock(blockOne, blockTwo, Z):
+
+    b = 1 
+    N = 27    
+    output = 0
+    
+    
+    uNJ = np.asarray ( blockOne )
+    uNI = np.asarray ( blockTwo )
+
+    try:
+        dist = np.linalg.norm(uNJ-uNI)
+        div = dist/(2*b*s*N)
+        exponential = math.exp((-1)*div)
+        output = (1/Z)*exponential
+    except ValueError:
+        return 0
+    return output
+
 # select=1 : use voxel selection selection=0 : do not use voxel selection
 def getNewValue(intuple, indata, select,Z):
  
@@ -148,6 +167,10 @@ def getNewValue(intuple, indata, select,Z):
            
                     
     return total
+
+
+
+
 
 def noisy(image):
       row,col,ch= image.shape
@@ -190,90 +213,175 @@ def weight_z(tupleI, tupleJ, data):
     exponential = math.exp((-1)*div)
     output = exponential
     return output      
+
+
+
+
+def blockPartition(noisyImage,blockVoxels):
+   global M
+   global A
+   global N
+
+   #input image is padded so we have to start from a and go to -A
+   for x in range(M,noisyImage.shape[0]-M+1,N):
+      for y in range(M,noisyImage.shape[1]-M+1,N):
+         for z in range(M,noisyImage.shape[2]-M+1,N):
+              #need to get all voxels assoicated with the block
+            try:
+                print("try", x,y,z)
+                blockVoxels[(x,y,z)] = noisyImage[x-A:x+A+1,y-A:y+A+1,z-A:z+A+1]
+            except IndexError:
+                print('index error')
+                continue
+
+      print("BLOCKPARTION", x)
+           
+
+def getNewValueBlock(blockVoxels,blockValues,padded):
+ 
+    global M 
+    global N
+
+    Z = Z_calculator((2,5,5),padded)
+
+    for key in blockVoxels:
+       
+        estimator = 0
+        #getting all the blocks in search volume 
+        #and im pretty sure estimator is suppsoed to be one value
+        #the jumping may be in correct
+        for x in range(key[0]-M,key[0]+M+1):
+            for y in range(key[1]-M,key[1]+M+1):
+                for z in range(key[2]-M,key[2]+M+1): 
+                    try:
+                        w = weightBlock(blockVoxels[key],blockVoxels[(x,y,z)],Z)
+                        print("WEIGHT",w)
+                        estimator = estimator + np.sum(w*blockVoxels[x,y,z])
+                    except KeyError:
+                        #print("keyError", x,y,z)
+                        continue
+        
+
+        blockValues[key] = estimator
+                    
+
+
+
+
     
+   
+
+
+##now using the blockMeans array we do nlm for it
+
+
+
+
+
+
+def voxelValues(outputImage,blockValues,noisyImage):
+   
+   for x in range(M,noisyImage.shape[0]-M+1,N):
+      for y in range(M,noisyImage.shape[1]-M+1,N):
+         for z in range(M,noisyImage.shape[2]-M+1,N):
+            #need to get all voxels assoicated with the block
+            print(x)
+            try:
+                #print("try", x,y,z)
+                print(x)
+                for i in range(x-A,x+A+1):
+                    for j in range(y-A,y+A+1):
+                        for k in range(z-A,z+A+1):
+                         outputImage[i,j,k] = outputImage[i,j,k] +blockValues[(x,y,z)]
+                         print(outputImage[i,j,k], i,j,k)
+            except (IndexError, KeyError):
+                #print('Error keep going')
+                continue
+
+      print("BLOCKPARTION", x)
+           
+
+   outputImage = outputImage/26
+                        
+ 
     
 img = nib.load('NormalBrains/t1_icbm_normal_1mm_pn3_rf20.mnc')
 
 
 data_big = img.get_fdata() #input data
-data = data_big[:3,:217,:181]
+data = data_big[:10,:100,0:100]
 print(data.mean())
 
 
 
 
-M = 1
+#setting up the blockwise database
 
+blockVoxels = dict()
+blockValues = dict()
+
+N = 2
+A = 3
+M = 3
+
+
+
+
+
+# Without using voxels
+start_time_without_voxel = time.time()
+
+
+centers = np.zeros(data.shape)
 
 output = np.zeros(data.shape) #output image
 noisyImage = noisy(data) # added gaussian noise to original data
 s = sigma(noisyImage)
 padded = padding(noisyImage,M)
 
-# Without using voxels
-start_time_without_voxel = time.time()
+
+blockPartition(padded,blockVoxels)
 
 
-for x in range(M,padded.shape[0]-M):
-  for y in range(M,padded.shape[1]-M):
-     for z in range(M,padded.shape[2]-M):
-        Z = Z_calculator((x,y,z),padded)
-        output[x-M,y-M,z-M] =  getNewValue((x,y,z),padded,0,Z)
-       
-        #print(x)
+getNewValueBlock(blockVoxels, blockValues,padded)
+
+
+voxelValues(output,blockValues,noisyImage)
+
+
+for key in blockVoxels:
+    try:
+        centers[key] = 255
+    except IndexError:
+        continue
 
 print("--- %s seconds (without voxel sel) ---" % (time.time() - start_time_without_voxel))  
 print("PSNR(ground-noise)",psnr(data,noisyImage))
 print("PSNR(ground-output)",psnr(data,output)) 
 
 #plot results
-plt.subplot(1,3,1)
-plt.imshow(data[2,:,:], interpolation = 'nearest')
+plt.subplot(1,4,1)
+plt.imshow(data[5,:,:], interpolation = 'nearest')
 plt.title("ground")
 
 
 
-plt.subplot(1,3,2)
-plt.imshow(noisyImage[2,:,:], interpolation = 'nearest')
+plt.subplot(1,4,2)
+plt.imshow(noisyImage[5,:,:], interpolation = 'nearest')
 plt.title("noisy")
 
 
-plt.subplot(1,3,3)
-plt.imshow(output[2,:,:], interpolation = 'nearest')
+plt.subplot(1,4,3)
+plt.imshow(output[5,:,:], interpolation = 'nearest')
 plt.title("filtered")
+
+plt.subplot(1,4,4)
+plt.imshow(centers[5,:,:], interpolation = 'nearest')
+plt.title("filtered")
+
+
+
+
+
 plt.show()     
 
-
-# Using voxels
-start_time_with_voxel=time.time()
-
-for x in range(data.shape[0]):
-  for y in range(data.shape[1]):
-     for z in range(data.shape[2]):
-        Z = Z_calculator((x,y,z),padded)
-        output[x,y,z] = getNewValue((x,y,z),padded,1,Z)
-       
-        #print(x)
-
-print("--- %s seconds (with voxel sel) ---" % (time.time() - start_time_with_voxel))  
-print("PSNR(ground-noise)",psnr(data,noisyImage))
-print("PSNR(ground-output)",psnr(data,output))
-
-
-
-#plot results
-plt.subplot(1,3,1)
-plt.imshow(data[2,:,:], interpolation = 'nearest')
-plt.title("ground")
-
-
-
-plt.subplot(1,3,2)
-plt.imshow(noisyImage[2,:,:], interpolation = 'nearest')
-plt.title("noisy")
-
-
-plt.subplot(1,3,3)
-plt.imshow(output[2,:,:], interpolation = 'nearest')
-plt.title("filtered")
-plt.show()
