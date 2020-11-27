@@ -181,6 +181,24 @@ def getNewValue(intuple, indata,Z):
                     
     return total
 
+
+def getNewValueBlock(intuple, indata,Z):
+
+    total = 0;
+    suma = 0;
+    global M 
+    global N
+
+    #this defines the search volume
+    for x in range(intuple[0]-M,intuple[0]+M+1,N):
+        for y in range(intuple[1]-M,intuple[1]+M+1,N):
+            for z in range(intuple[2]-M,intuple[2]+M+1,N):          
+                    w = weight(intuple,(x,y,z),indata,Z)
+                    total = total + w*indata[x,y,z]
+                    suma = suma + w
+                        
+    return total
+
 def getNewValue_voxel(intuple, indata):
  
     total = 0;
@@ -207,7 +225,7 @@ def getNewValue_voxel(intuple, indata):
 def noisy(image):
       row,col,ch= image.shape
       mean = 273
-      var = 3000
+      var = 1000
       sigma = var**0.5
       np.random.seed(10)
       gauss = np.random.normal(mean,sigma,(row,col,ch))
@@ -224,7 +242,7 @@ img = nib.load('NormalBrains/t1_icbm_normal_1mm_pn3_rf20.mnc')
 
 
 data_big = img.get_fdata() #input data
-data = data_big[:3,:50,:50]
+data = data_big[:3,:,:]
 print(data.mean())
 
 
@@ -242,14 +260,17 @@ padded = padding(noisyImage,M)
 start_time_without_voxel = time.time()
 
 
+N = 2
+
+
 for x in range(M,padded.shape[0]-M):
   for y in range(M,padded.shape[1]-M):
      for z in range(M,padded.shape[2]-M):
-        output[x-M,y-M,z-M] = getNewValue((x,y,z),padded,Z)
+            output[x-M,y-M,z-M] = getNewValueBlock((x,y,z),padded,Z)
        
-        #print(x)
+            #print(x)
 
-print("--- %s seconds (without voxel sel) ---" % (time.time() - start_time_without_voxel))  
+print("--- %s seconds (with BlockWise) ---" % (time.time() - start_time_without_voxel))  
 print("PSNR(ground-noise)",psnr(data,noisyImage))
 print("PSNR(ground-output)",psnr(data,output)) 
 
@@ -271,35 +292,67 @@ plt.title("filtered")
 plt.show()     
 
 
- 
-start_time_with_voxel=time.time()
 
-for x in range(M,padded.shape[0]-M):
-  for y in range(M,padded.shape[1]-M):
-     for z in range(M,padded.shape[2]-M):
-        output[x-M,y-M,z-M] = getNewValue_voxel((x,y,z),padded)
+
+
+# for x in range(M,padded.shape[0]-M):
+#   for y in range(M,padded.shape[1]-M):
+#      for z in range(M,padded.shape[2]-M):
+#         output[x-M,y-M,z-M] = getNewValue((x,y,z),padded,Z)
        
-        #print(x)
+#         #print(x)
 
-print("--- %s seconds (with voxel sel) ---" % (time.time() - start_time_with_voxel))  
-print("PSNR(ground-noise)",psnr(data,noisyImage))
-print("PSNR(ground-output)",psnr(data,output))
+# print("--- %s seconds (without voxel sel) ---" % (time.time() - start_time_without_voxel))  
+# print("PSNR(ground-noise)",psnr(data,noisyImage))
+# print("PSNR(ground-output)",psnr(data,output)) 
 
-
-
-#plot results
-plt.subplot(1,3,1)
-plt.imshow(data[2,:,:], interpolation = 'nearest')
-plt.title("ground")
+# #plot results
+# plt.subplot(1,3,1)
+# plt.imshow(data[2,:,:], interpolation = 'nearest')
+# plt.title("ground")
 
 
 
-plt.subplot(1,3,2)
-plt.imshow(noisyImage[2,:,:], interpolation = 'nearest')
-plt.title("noisy")
+# plt.subplot(1,3,2)
+# plt.imshow(noisyImage[2,:,:], interpolation = 'nearest')
+# plt.title("noisy")
 
 
-plt.subplot(1,3,3)
-plt.imshow(output[2,:,:], interpolation = 'nearest')
-plt.title("filtered")
-plt.show()
+# plt.subplot(1,3,3)
+# plt.imshow(output[2,:,:], interpolation = 'nearest')
+# plt.title("filtered")
+# plt.show()     
+
+
+ 
+# start_time_with_voxel=time.time()
+
+# for x in range(M,padded.shape[0]-M):
+#   for y in range(M,padded.shape[1]-M):
+#      for z in range(M,padded.shape[2]-M):
+#         output[x-M,y-M,z-M] = getNewValue_voxel((x,y,z),padded)
+       
+#         #print(x)
+
+# print("--- %s seconds (with voxel sel) ---" % (time.time() - start_time_with_voxel))  
+# print("PSNR(ground-noise)",psnr(data,noisyImage))
+# print("PSNR(ground-output)",psnr(data,output))
+
+
+
+# #plot results
+# plt.subplot(1,3,1)
+# plt.imshow(data[2,:,:], interpolation = 'nearest')
+# plt.title("ground")
+
+
+
+# plt.subplot(1,3,2)
+# plt.imshow(noisyImage[2,:,:], interpolation = 'nearest')
+# plt.title("noisy")
+
+
+# plt.subplot(1,3,3)
+# plt.imshow(output[2,:,:], interpolation = 'nearest')
+# plt.title("filtered")
+# plt.show()
