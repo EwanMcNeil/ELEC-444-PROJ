@@ -204,10 +204,66 @@ def getNewValue_voxel(intuple, indata):
     return total
            
 
+
+###BLOCKWISE FUNCTIONS 
+def getNewValueBlock(intuple, indata,Z,M,N):
+
+    total = 0;
+    suma = 0;
+    count = 0
+    #blockZ = (N*2)**3
+    blockZ = 8
+    #this defines the search and only compares on blocks with the step of N
+    for x in range(intuple[0]-M,intuple[0]+M+1,N):
+        for y in range(intuple[1]-M,intuple[1]+M+1,N):
+            for z in range(intuple[2]-M,intuple[2]+M+1,N): 
+                    count = count + 1         
+                    w = weight(intuple,(x,y,z),indata,blockZ)
+                    total = total + w*indata[x,y,z]
+                    suma = suma + w         
+    return total
+
+
+
+
+def blockwise(M,Z,padded,data):
+    N = 2
+    A = 1   
+    output = np.zeros(data.shape)
+    centers = []
+    ##this gets all the center values 
+    for x in range(M,padded.shape[0]-M,N):
+        for y in range(M,padded.shape[1]-M,N):
+            for z in range(M,padded.shape[2]-M,N):
+                    output[x-M,y-M,z-M] = getNewValueBlock((x,y,z),padded,Z,M,N)
+                    centers.append((x-M,y-M,z-M))
+                   
+    finalOutput = np.zeros(output.shape) #output image
+
+    for x in range(0,output.shape[0]):
+        for y in range(0,output.shape[1]):
+            for z in range(0,output.shape[2]):
+                    if not (x,y,z) in centers:
+                        estimator = output[x-A:x+A+1,y-A:y+A+1,z-A:z+A+1]
+                        count = np.count_nonzero(estimator)
+                        sumOut = np.sum(estimator)
+                        div = 0
+                        if(count != 0):
+                            div = sumOut/count
+                            finalOutput[x,y,z] =  div
+                        else:
+                            finalOutput[x,y,z] =  0
+
+
+    addition = np.zeros(output.shape) #output image
+    addition = np.add(output,finalOutput)
+    return addition
+
+
 def noisy(image):
       row,col,ch= image.shape
-      mean = 273
-      var = 3000
+      mean = 129
+      var = 500
       sigma = var**0.5
       np.random.seed(10)
       gauss = np.random.normal(mean,sigma,(row,col,ch))
@@ -254,52 +310,73 @@ print("PSNR(ground-noise)",psnr(data,noisyImage))
 print("PSNR(ground-output)",psnr(data,output)) 
 
 #plot results
-plt.subplot(1,3,1)
+plt.figure(0)
+plt.subplot(1,4,1)
 plt.imshow(data[2,:,:], interpolation = 'nearest')
 plt.title("ground")
 
 
 
-plt.subplot(1,3,2)
+plt.subplot(1,4,2)
 plt.imshow(noisyImage[2,:,:], interpolation = 'nearest')
 plt.title("noisy")
 
 
-plt.subplot(1,3,3)
+plt.subplot(1,4,3)
 plt.imshow(output[2,:,:], interpolation = 'nearest')
-plt.title("filtered")
-plt.show()     
+plt.title("Classic")
+ 
 
 
  
-start_time_with_voxel=time.time()
+# start_time_with_voxel=time.time()
 
-for x in range(M,padded.shape[0]-M):
-  for y in range(M,padded.shape[1]-M):
-     for z in range(M,padded.shape[2]-M):
-        output[x-M,y-M,z-M] = getNewValue_voxel((x,y,z),padded)
+# for x in range(M,padded.shape[0]-M):
+#   for y in range(M,padded.shape[1]-M):
+#      for z in range(M,padded.shape[2]-M):
+#         output[x-M,y-M,z-M] = getNewValue_voxel((x,y,z),padded)
        
-        #print(x)
+#         #print(x)
 
-print("--- %s seconds (with voxel sel) ---" % (time.time() - start_time_with_voxel))  
+# print("--- %s seconds (with voxel sel) ---" % (time.time() - start_time_with_voxel))  
+# print("PSNR(ground-noise)",psnr(data,noisyImage))
+# print("PSNR(ground-output)",psnr(data,output))
+
+
+
+# #plot results
+# plt.subplot(1,3,1)
+# plt.imshow(data[2,:,:], interpolation = 'nearest')
+# plt.title("ground")
+
+
+
+# plt.subplot(1,3,2)
+# plt.imshow(noisyImage[2,:,:], interpolation = 'nearest')
+# plt.title("noisy")
+
+
+# plt.subplot(1,3,3)
+# plt.imshow(output[2,:,:], interpolation = 'nearest')
+# plt.title("filtered")
+# plt.show()
+
+
+
+
+start_time_blockWise =time.time()
+
+blockWiseOutput = blockwise(M,Z,padded,data)
+
+print("--- %s seconds (with Blockwise) ---" % (time.time() - start_time_blockWise))  
 print("PSNR(ground-noise)",psnr(data,noisyImage))
-print("PSNR(ground-output)",psnr(data,output))
-
+print("PSNR(ground-output)",psnr(data,blockWiseOutput))
 
 
 #plot results
-plt.subplot(1,3,1)
-plt.imshow(data[2,:,:], interpolation = 'nearest')
-plt.title("ground")
 
 
-
-plt.subplot(1,3,2)
-plt.imshow(noisyImage[2,:,:], interpolation = 'nearest')
-plt.title("noisy")
-
-
-plt.subplot(1,3,3)
-plt.imshow(output[2,:,:], interpolation = 'nearest')
-plt.title("filtered")
+plt.subplot(1,4,4)
+plt.imshow(blockWiseOutput[2,:,:], interpolation = 'nearest')
+plt.title("Blockwise")
 plt.show()
