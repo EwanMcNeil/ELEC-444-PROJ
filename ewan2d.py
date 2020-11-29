@@ -289,44 +289,6 @@ def parallelize_voxel_selection(x):
             output_thread[x-M,y-M,z-M] = getNewValue_voxel((x,y,z),padded)
     return output_thread 
 
-def parallelize_blockwise(x):
-    
-            
-    finalOutput = np.zeros(output.shape) #output image  
-    addition = np.zeros(data.shape)
-
-    A = 1   
-    
-    print("running parallelize_blockwise")
-    for y in range(0,output.shape[1]):
-        for z in range(0,output.shape[2]):
-            if not (x,y,z) in centers:
-                estimator = output[x-A:x+A+1,y-A:y+A+1,z-A:z+A+1]
-                count = np.count_nonzero(estimator)
-                sumOut = np.sum(estimator)
-                div = 0
-                if(count != 0):
-                    div = sumOut/count
-                    finalOutput[x,y,z] =  div
-                else:
-                    finalOutput[x,y,z] =  0
-
-
-    addition = np.zeros(output.shape) #output image
-    addition = np.add(output,finalOutput)
-
-    return addition
-
-def centers_blockwise(x):
-    
-    N = 2
-
-    ##this gets all the center values 
-    for y in range(M,padded.shape[1]-M,N):
-            for z in range(M,padded.shape[2]-M,N):
-                    output[x-M,y-M,z-M] = getNewValueBlock((x,y,z),padded,M,N)
-                    centers.append((x-M,y-M,z-M))
-    return (centers, output)
 
 
 
@@ -337,135 +299,169 @@ if __name__ == '__main__':
     img = nib.load('NormalBrains/t1_icbm_normal_1mm_pn3_rf20.mnc')
 
     data_big = img.get_fdata() #input data
-    data = data_big[:3,:10,:10]
+    data = data_big[:3,:5,:5]
     noisyImage = noisy(data) # added gaussian noise to original data
     s = sigma(noisyImage)
     
+    print("PSNR(ground-noise)",psnr(data,noisyImage))
+    print("\n")
+    
+            #plot results
+
     
     #following 2 values valid only for classic NL-means
-    M = 1
-    Z = math.pow(((2*M)+1),3)
-    
-    padded = padding(noisyImage,M)
-    
-    #create the matrix for outputs
-    output_classic = np.zeros(data.shape) 
-    output_voxel = np.zeros(data.shape)
-    output_blockWise = np.zeros(data.shape)
-    
-    
-    output_classic_thread = np.zeros(data.shape)
-    output_voxel_thread = np.zeros(data.shape)
-    output_blockwise_thread = np.zeros(data.shape)
-    
-    print("PSNR(ground-noise)",psnr(data,noisyImage))
-    
-    #Multiprocessing for classical implementation
-
-    start_time_classic_thread = time.time()
-    
-    p_classic = Pool(processes=3)
-    res_classic = p_classic.map(parallelize_classic,range(M,padded.shape[0]-M))
-    p_classic.close()
-    p_classic.join()
-    
-    print("--- %s seconds (classical(thread)) ---" % (time.time() - start_time_classic_thread)) 
-    
-    for i in range(data.shape[0]):
-       output_classic_thread[i]  = np.array(res_classic[i][i])
-       
-    
-    print("PSNR(ground-classic)",psnr(data,output_classic_thread))   
-       
-       
-    #Multiprocessing for voxel selection implementation 
-    
-    start_time_voxel_selection_thread = time.time()
-    
-    p_voxel_sel = Pool(processes=3)
-    res_voxel_sel = p_voxel_sel.map(parallelize_voxel_selection,range(M,padded.shape[0]-M))
-    p_voxel_sel.close()
-    p_voxel_sel.join()
-    
-    print("--- %s seconds (voxel_selection(thread)) ---" % (time.time() - start_time_voxel_selection_thread)) 
-    for i in range(data.shape[0]):
-       output_voxel_thread[i]  = np.array(res_voxel_sel[i][i])
-    
-    print("PSNR(ground-classic with voxel selection)",psnr(data,output_voxel_thread)) 
-       
-
-    #Multiprocessing for blockwise implementation
-    centers = []
-    output = np.zeros(data.shape)
-    
-    start_time_blockwise_thread = time.time()
-    
-    p_centers = Pool(processes=3)
-    test = p_centers.map(centers_blockwise, range(M,padded.shape[0]-M) )
-    p_centers.close()
-    p_centers.join()
-    
-    for i in range(len(test)):
-       centers = centers + test[i][0]
-       
-    for i in range(len(test)):
-       output = output + test[i][1]
-       
-
-    
-    p_blockwise = Pool(processes=3)
-    test2 = p_blockwise.map(parallelize_blockwise,range(output.shape[0]) )
-    p_blockwise.close()
-    p_blockwise.join()
-    
-    blockwiseOutput = np.zeros(output.shape)
-    
-    for i in range(len(test2)):
-        blockwiseOutput[i] =  test2[i][i]
+    for M in range(1,4):
         
+        Z = math.pow(((2*M)+1),3)
+        
+        padded = padding(noisyImage,M)
+        
+        #create the matrix for outputs
+        output_classic = np.zeros(data.shape) 
+        output_voxel = np.zeros(data.shape)
+        output_blockWise = np.zeros(data.shape)
+        
+        
+        output_classic_thread = np.zeros(data.shape)
+        output_voxel_thread = np.zeros(data.shape)
+        output_blockwise_thread = np.zeros(data.shape)
+        
+        
+        print("\n")
+        print("M: ", M)
+        print("\n")
+        
+        
+        #Multiprocessing for classical implementation
     
-    print("--- %s seconds (voxel_selection(thread)) ---" % (time.time() - start_time_blockwise_thread))
-    
-    #for i in range(data.shape[0]):
-   #    output_blockwise_thread[i]  = np.array(res_blockwise[i][i])
+        start_time_classic_thread = time.time()
+        
+        p_classic = Pool(processes=3)
+        res_classic = p_classic.map(parallelize_classic,range(M,padded.shape[0]-M))
+        p_classic.close()
+        p_classic.join()
+        
+        print("seconds (classical(thread)): " , (time.time() - start_time_classic_thread)) 
+        
+        for i in range(data.shape[0]):
+           output_classic_thread[i]  = np.array(res_classic[i][i])
+           
+        
+        print("PSNR(ground-classic)",psnr(data,output_classic_thread))   
+           
+           
+        #Multiprocessing for voxel selection implementation 
+        
+        start_time_voxel_selection_thread = time.time()
+        
+        p_voxel_sel = Pool(processes=3)
+        res_voxel_sel = p_voxel_sel.map(parallelize_voxel_selection,range(M,padded.shape[0]-M))
+        p_voxel_sel.close()
+        p_voxel_sel.join()
+        
+        print("seconds (voxel_selection(thread)): " , (time.time() - start_time_voxel_selection_thread)) 
+        for i in range(data.shape[0]):
+           output_voxel_thread[i]  = np.array(res_voxel_sel[i][i])
+        
+        print("PSNR(ground-classic with voxel selection)",psnr(data,output_voxel_thread)) 
        
-    print("PSNR(ground-blockwise)",psnr(data,blockwiseOutput))
 
+   
+    print("\n")
+    print("-----------Without threading-----------")
+    print("\n")
     
-# blockWiseOutput = blockwise(M,Z,padded,data)
+    for M in range(1,4):
+        
+        Z = math.pow(((2*M)+1),3)
+        
+        padded = padding(noisyImage,M)
+        
+        #create the matrix for outputs
+        output_classic = np.zeros(data.shape) 
+        output_voxel = np.zeros(data.shape)
+        output_blockwise = np.zeros(data.shape)
+        
+        
+        output_classic_thread = np.zeros(data.shape)
+        output_voxel_thread = np.zeros(data.shape)
+        output_blockwise_thread = np.zeros(data.shape)
+        
+      
+        print("\n")
+        print("M: ", M)
+        print("\n")
+        
+        
+        #MClassical implementation
+    
+        start_time_classic = time.time()
+        
+        for x in range(M,padded.shape[0]-M):
+          for y in range(M,padded.shape[1]-M):
+             for z in range(M,padded.shape[2]-M):
+                output_classic[x-M,y-M,z-M] = getNewValue((x,y,z),padded,Z)
+         
+        
+        print("seconds (classical): " , (time.time() - start_time_classic)) 
+        print("PSNR(ground-classic)",psnr(data,output_classic))   
+           
+           
+        #Classical with voxel selection implementation 
+        
+        start_time_voxel_selection = time.time()
+        
+                
+        for x in range(M,padded.shape[0]-M):
+          for y in range(M,padded.shape[1]-M):
+             for z in range(M,padded.shape[2]-M):
+                output_voxel[x-M,y-M,z-M] = getNewValue_voxel((x,y,z),padded)
+        
+        
+        
+        print("seconds (voxel_selection): ",(time.time() - start_time_voxel_selection)) 
+        print("PSNR(ground-classic with voxel selection)",psnr(data,output_voxel)) 
+        
+        
+        #Classical with blockwise implementation
+        start_time_blockwise = time.time()
+        
+        output_blockwise = blockwise(M,padded,data)
+        
+        
+        print("seconds (blockwise): ",(time.time() - start_time_blockwise)) 
+        print("PSNR(ground-blockwise)",psnr(data,output_blockwise)) 
+ 
+    
+        fig = plt.figure()
+        
+        ax1 = fig.add_subplot(5,1,1)
+        ax1.imshow(data[2,:,:])
+        ax1.axis('off')
+        
+        ax2 = fig.add_subplot(5,1,2)
+        ax2.imshow(noisyImage[2,:,:])
+        ax2.axis('off')
+        
+        ax3 = fig.add_subplot(5,1,3)
+        ax3.imshow(output_classic[2,:,:])
+        ax3.axis('off')
+        
+        ax4 = fig.add_subplot(5,1,4)
+        ax4.imshow(output_voxel[2,:,:])
+        ax4.axis('off')
+        
+           
+        ax5 = fig.add_subplot(5,1,5)
+        ax5.imshow(output_blockwise[2,:,:])
+        ax5.axis('off')
+        
+        string = 'result' + str(M) + '.png'
+        fig.savefig(string, dpi=400)
     
 
 
-#plot results
-fig = plt.figure()
 
-ax1 = fig.add_subplot(5,1,1)
-ax1.imshow(data[2,:,:])
-#ax1.title("Ground")
-ax1.axis('off')
-
-ax2 = fig.add_subplot(5,1,2)
-ax2.imshow(noisyImage[2,:,:])
-#ax2.title("Noisy")
-ax2.axis('off')
-
-ax2 = fig.add_subplot(5,1,3)
-ax2.imshow(output_classic_thread[2,:,:])
-#ax2.title("Classical")
-ax2.axis('off')
-
-ax3 = fig.add_subplot(5,1,4)
-ax3.imshow(output_voxel_thread[2,:,:])
-#ax3.title("Voxel Selection")
-ax3.axis('off')
-
-ax4 = fig.add_subplot(5,1,5)
-ax4.imshow(blockwiseOutput[2,:,:])
-#ax4.title("Blockwise")
-ax4.axis('off')
-
-
-fig.savefig('result.png', dpi=400)
 
 
       
